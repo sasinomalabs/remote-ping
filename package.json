@@ -1,0 +1,10 @@
+{
+  "name": "remote-ping",
+  "version": "1.0.0",
+  "description": "Ping a remote server via npx",
+  "bin": {
+    "remote-ping": "index.js"
+  },
+  "author": "sasinomalabs",
+  "license": "MIT"
+}
